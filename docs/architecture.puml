@@ -1,0 +1,38 @@
+@startuml
+package observable {
+  class Observable<T> {
+    +create(OnSubscribe<T>)
+    +subscribe(Observer<T>): Disposable
+    +map(...)
+    +filter(...)
+    +flatMap(...)
+    +subscribeOn(...)
+    +observeOn(...)
+  }
+  interface Observer<T> {
+    +onNext(T)
+    +onError(Throwable)
+    +onComplete()
+  }
+}
+package scheduler {
+  interface Scheduler {
+    +execute(Runnable)
+    +shutdown()
+  }
+  class IOThreadScheduler
+  class ComputationScheduler
+  class SingleThreadScheduler
+}
+package subscription {
+  interface Disposable {
+    +dispose()
+    +isDisposed()
+  }
+  class BooleanDisposable
+}
+Observable --> Observer
+Observable --> Scheduler
+Observable --> Disposable
+Scheduler --> NamedThreadFactory
+@enduml
