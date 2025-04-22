@@ -117,72 +117,83 @@ mvn clean test
 
 и проходят без ошибок, демонстрируя корректность реализации.
 
-## Примеры использования
+## Пример использования
 
 ```java
-// 1. Создание простого Observable и подписка
-Observable<Integer> src = Observable.create(emitter -> {
-            emitter.onNext(10);
-            emitter.onNext(20);
-            emitter.onComplete();
-        });
+package com.edu.rxjava.demo;
 
-// Применяем цепочку операторов
-Disposable disp = src
-        .map(i -> i * 3)
-        .filter(i -> i > 30)
-        .flatMap(i -> Observable.create(inner -> {
-            inner.onNext("Value: " + i);
-            inner.onComplete();
-        }))
-        .subscribe(new Observer<String>() {
-            @Override
-            public void onNext(String item) {
-                System.out.println(item);
-            }
+import com.edu.rxjava.observable.Observable;
+import com.edu.rxjava.observer.Observer;
+import com.edu.rxjava.scheduler.IOThreadScheduler;
+import com.edu.rxjava.scheduler.SingleThreadScheduler;
+import com.edu.rxjava.subscription.Disposable;
 
-            @Override
-            public void onError(Throwable t) {
-                t.printStackTrace();
-            }
+public class ExampleUsage {
 
-            @Override
-            public void onComplete() {
-                System.out.println("Stream completed.");
-            }
-        });
+  public static void main(String[] args) throws InterruptedException {
+    // 1. Простое Observable с операторами map, filter, flatMap
+    Observable<Integer> src = Observable.create(emitter -> {
+      emitter.onNext(10);
+      emitter.onNext(20);
+      emitter.onComplete();
+    });
 
-// 2. Использование Schedulers для асинхронных задач
-SingleThreadScheduler single = new SingleThreadScheduler();
-IOThreadScheduler io = new IOThreadScheduler();
+    Disposable disp = src
+            .map(i -> i * 3)                            // 30, 60
+            .filter(i -> i > 30)                        // только 60
+            .flatMap(i ->
+                    Observable.create(inner -> {
+                      inner.onNext("Value: " + i);
+                      inner.onComplete();
+                    })
+            )
+            .subscribe(new Observer<String>() {
+              @Override
+              public void onNext(String item) {
+                System.out.println("[onNext] " + item);
+              }
+              @Override
+              public void onError(Throwable t) {
+                System.err.println("[onError] " + t);
+              }
+              @Override
+              public void onComplete() {
+                System.out.println("[onComplete] Stream completed.");
+              }
+            });
 
-src.
+    // 2. Асинхронное выполнение через Schedulers
+    IOThreadScheduler ioScheduler = new IOThreadScheduler();
+    SingleThreadScheduler singleScheduler = new SingleThreadScheduler();
 
-subscribeOn(io)
-   .
+    src.subscribeOn(ioScheduler)
+            .observeOn(singleScheduler)
+            .subscribe(new Observer<Integer>() {
+              @Override
+              public void onNext(Integer i) {
+                System.out.println("[async onNext on " + Thread.currentThread().getName() + "] " + i);
+              }
+              @Override
+              public void onError(Throwable t) {
+                System.err.println("[async onError] " + t);
+              }
+              @Override
+              public void onComplete() {
+                System.out.println("[async onComplete] Finished on " + Thread.currentThread().getName());
+              }
+            });
 
-observeOn(single)
-   .
+    // Несколько миллисекунд ждём, чтобы асинхронные задачи завершились
+    Thread.sleep(200);
 
-subscribe(new Observer<Integer>() {
-    @Override public void onNext (Integer item){
-        System.out.println("Processed on single thread: " + item);
-    }
-    @Override public void onError (Throwable t){
-    }
-    @Override public void onComplete () {
-    }
-});
+    // 3. Отмена подписки (если нужно)
+    // disp.dispose();
 
-// 3. Отмена подписки при необходимости
-// disp.dispose();
+    // 4. Завершаем работу планировщиков
+    ioScheduler.shutdown();
+    singleScheduler.shutdown();
+  }
+}
 
-// 4. Остановка планировщиков перед завершением программы
-        io.
-
-shutdown();
-single.
-
-shutdown();
 ```
 
